@@ -1,17 +1,64 @@
-﻿#################################################################################################################################################
-#RGS Information
+﻿<#
+.SYNOPSIS
+    Creates or updates a workflow with IVR options specified in this script
+
+.DESCRIPTION
+    1. The first section of this script is where you can make changes to put the Workflow parameters and customise the script for your environment.
+    2. The second section is where the fun is; you will need to edit this based on the IVR questions and responses; edit this as you see fit; I have tried to include as much as possible in there.
+    3. DO NOT EDIT the third section; as this retrieves the Workflow (or creates it); and updates it with the information from the first two sections.
+
+.NOTES
+    Version          : 0.01
+    Required Infra.  : Lync 2010 or above
+
+    Last Updated     : 15/05/2020
+    Wishlist         : Let me know and I will add it
+    Known Issues     : No known issues
+    Acknowledgements : None
+
+    Author(s)        : Hany Elkady (pheroah@gmail.com)
+    Website          : http://pher0ah.blogspot.com.au
+
+    Disclaimer       : The rights to the use of this script is give as is without warranty
+                       of any kind implicit or otherwise
+
+.PARAMETER PoolFQDN
+    FQDN of the Pool where this IVR will be configured.
+
+.EXAMPLE
+    Update-CsIvrWorkflow.ps1 -PoolFQDN sfbFE01.contoso.com.au'
+
+.LINK
+    https://pher0ah.blogspot.com/2020/05/complex-ivr-workflow.html
+
+#>
+#Requires -Version 2.0
+[cmdletbinding()]
+param ([Parameter(mandatory=$true)] [string]$PoolFQDN
+)
+
 #################################################################################################################################################
-<#Pool Name      #> $PoolName        = 'tesla-dc-sfbfe.energysafe.vic.gov.au'
+#Section 1: RGS Information [Edit this section to fit your environment]
+#################################################################################################################################################
+<#Pool Name      #> $PoolName        = 'sfbFE01.contoso.com.au' <#--------------- TESTING ONLY #>
 <#Name           #> $RGSName         = 'Main IVR'
 <#Description    #> $RGSDescription  = 'Main Menu Options'
-<#SIP Address    #> $RGSUri          = 'sip:rgs_main@energysafe.vic.gov.au'
-<#PSTN Number    #> $RGSLineUri      = 'tel:+61396746395'
-<#Display Number #> $RGSNumber       = '03 9674 6395'
+<#SIP Address    #> $RGSUri          = 'sip:IVR_Main@contoso.com.au'
+<#PSTN Number    #> $RGSLineUri      = 'tel:+61398765432'
+<#Display Number #> $RGSNumber       = '03 9876 5432'
 <#Business Hours #> $BusinessHours   = 'Always Open'
 <#Holiday List   #> $HolidayListName = 'VIC-Holidays'
 <#Questions CSV  #> $QuestionsCSV    = 'TestQuestions.csv'
 
+<#IVR Language   #> $IVRLanguage     = 'en-AU'
+<#IVR Timezone   #> $IVRTimeZOne     = 'AUS Eastern Standard Time'
+
 $ServiceID  = "service:ApplicationServer:$($PoolName)"
+#################################################################################################################################################
+#Section 2: IVR Options [Edit this section to customise the workflow IVR Options]
+#################################################################################################################################################
+
+
 #################################################################################################################################################
 # Read Questions File
 #################################################################################################################################################
@@ -86,7 +133,7 @@ $Prompt        = New-CsRgsPrompt -TextToSpeechPrompt $TTS
 $HolidayAction = New-CsRgsCallAction -Prompt $Prompt -Action Terminate
 
 #################################################################################################################################################
-#Create or Update RGS
+#Section 3: Create or Update RGS [DO NOT EDIT BELOW THIS LINE]
 #################################################################################################################################################
 Remove-Variable -Name 'RGS' -Force -ErrorAction SilentlyContinue
 $RGS        = (Get-CsRgsWorkflow -Identity $ServiceID -Owner $PoolName -Name $RGSName -ErrorAction SilentlyContinue)
@@ -111,15 +158,15 @@ If($RGS){
   Invoke-Expression -Command $NewRGS -OutVariable $RGS                                             
 }
 
-#################################################################################################################################################
+########################
 #Set Workflow Parameters
-#################################################################################################################################################
+########################
 #Setup Music On Hold
 $RGS.CustomMusicOnHoldFile  = $Null
 
 #Set TimeZone and Language Information
-$RGS.Language        = 'en-AU'
-$RGS.TimeZone        = 'AUS Eastern Standard Time'
+$RGS.Language        = $IVRLanguage
+$RGS.TimeZone        = $IVRTimeZone
 $RGS.BusinessHoursID = (Get-CsRgsHoursOfBusiness -Name $BusinessHours).Identity[0]
 
 #Set Managment
@@ -137,7 +184,5 @@ $RGS.NonBusinessHoursAction = $OOFAction
 $RGS.HolidayAction          = $HolidayAction
 $RGS.DefaultAction          = $IVRAction
 
-#################################################################################################################################################
 #Update RGS
-#################################################################################################################################################
 Set-CsRgsWorkflow -Instance $RGS
